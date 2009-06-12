@@ -3,7 +3,7 @@
 
 mochevent is a libevent based front-end to a mochiweb compliant request module that can dispatch a subset of request types.
 
-This is BETA software at best. There are memory leaks and compatibility concerns that should lead you to not using it in production until they get worked out.
+This is release candidate software. We've worked hard to get as many of the kinks out as possible but there may be more that we don't know about. Please use this in your dev and test environments and send bug reports. Do send as much information as possible to help us replicate any issues.
 
 # Prerequisites 
 
@@ -19,7 +19,7 @@ This project has not been built or tested on any environments other than the fol
 
 It's easy, first start the httpdmaster node and start the mochevent handler.
 
-    $ erl -pa ./ebin -setcookie secretcookie -sname httpdmaster@yourhost
+    $ erl -pa ./ebin -setcookie secretcookie -sname httpdmaster@localhost
     1> mochevent:start({mochevent, default}).
     <0.x.y>
 
@@ -32,9 +32,18 @@ You can test it with curl.
     $ curl http://localhost:8000/oooohyeaaaah
     The rain in Spain falls gently on the plain.
 
+# Command-line Arguments
+
+ * --ip &lt;ip address&gt;, defaults to "127.0.0.1"
+ * --port &lt;port&gt;, defaults to 8000
+ * --master &lt;node name&gt;, defaults to "httpdmaster@localhost"
+ * --secret &lt;node cookie&gt;, defaults to "supersecret"
+ * --timeout &lt;seconds&gt;, defaults to 10
+ * --remote &lt;registered process name&gt;, defaults to "mochevent_handler"
+
 # What's Next?
 
- * Processing command line arguments for: ip/port binding, remote node name and dispatch process name
- * Clean up object creation and destruction
- * Clean up race conditions with proper mutex calls/locks
  * Adding init.d scripts
+ * Better build process, porting to other environments
+ * Code cleanup
+ * Tests

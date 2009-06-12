@@ -37,7 +37,7 @@
 #include <pthread.h>
 #include "erl_interface.h"
 #include "ei.h"
-
+#include <getopt.h>
 #include <signal.h>
 
 extern const char *erl_thisnodename(void); 
@@ -47,11 +47,17 @@ extern short erl_thiscreation(void);
 #define BUFSIZE 1024
 #define MAXUSERS (65536) //!< Max number of connections to be handled concurrently
 
+static int verbose_flag;
+
 int fd;
 struct evhttp_request * clients[MAXUSERS+1];
 int cuid;
 pthread_mutex_t clients_mutex;
 pthread_mutex_t cuid_mutex;
+char *secret;
+char *remotenode;
+char *regproc;
+int timeout;
 
 void request_handler(struct evhttp_request *req, void *arg) {
     pthread_mutex_lock(&cuid_mutex);
@@ -97,13 +103,11 @@ void request_handler(struct evhttp_request *req, void *arg) {
     clients[mycuid] = req;
     pthread_mutex_unlock(&clients_mutex);
 
-    erl_reg_send(fd, "mochevent_handler", emsg2);
+    erl_reg_send(fd, regproc, emsg2);
     erl_free_compound(emsg2);
     free(body);
 
-    int timeout = 3 * CLOCKS_PER_SEC;
     long time_taken = clock();
-
     // NKG: There might be a better way to do this.
     while (clients[mycuid]) {
         if (clock() - time_taken > timeout) {
@@ -129,10 +133,10 @@ void cnode_run() {
     ETERM *reqidr, *coder, *respheadersr, *respbodyr;
 
     erl_init(NULL, 0);
-    if (erl_connect_init(1, "secretcookie", 0) == -1) {
+    if (erl_connect_init(1, secret, 0) == -1) {
         erl_err_quit("erl_connect_init");
     }
-    if ((fd = erl_connect("httpdmaster@localhost")) < 0) {
+    if ((fd = erl_connect(remotenode)) < 0) {
         erl_err_quit("erl_connect");
     }
 
@@ -196,7 +200,7 @@ void cnode_run() {
                 erl_free_term(reqidr);
                 erl_free_term(coder);
                 erl_free_term(respheadersr);
-                erl_free_term(respbodyr);0
+                erl_free_term(respbodyr);
             }
         }
     }
@@ -205,11 +209,77 @@ void cnode_run() {
 
 int main(int argc, char **argv) {
     cuid = 1;
+    
+    char *ipaddress;
+    int port = 8000;
+    timeout = 10 * CLOCKS_PER_SEC;
+
+    int c;
+    while (1) {
+        static struct option long_options[] = {
+            {"verbose", no_argument,       &verbose_flag, 1},
+            {"brief",   no_argument,       &verbose_flag, 0},
+            {"ip",      required_argument, 0, 'i'},
+            {"port",    required_argument, 0, 'p'},
+            {"master",  required_argument, 0, 'm'},
+            {"secret",  required_argument, 0, 's'},
+            {"timeout", required_argument, 0, 't'},
+            {"remote",  required_argument, 0, 'r'},
+            {0, 0, 0, 0}
+        };
+        int option_index = 0;
+        c = getopt_long(argc, argv, "i:p:", long_options, &option_index);
+        if (c == -1) { break; }
+        switch (c) {
+            case 0:
+                if (long_options[option_index].flag != 0) { break; }
+                printf ("option %s", long_options[option_index].name);
+                if (optarg) { printf(" with arg %s", optarg); }
+                printf("\n");
+                break;
+            case 'i':
+                ipaddress = optarg;
+                break;
+            case 'p':
+                port = atoi(optarg);
+                break;
+            case 's':
+                secret = optarg;
+                break;
+            case 'm':
+                remotenode = optarg;
+                break;
+            case 'r':
+                regproc = optarg;
+                break;
+            case 't':
+                timeout = atoi(optarg) * CLOCKS_PER_SEC;
+                break;
+            case '?':
+                /* getopt_long already printed an error message. */
+                break;
+            default:
+                abort();
+         }
+    }
+    if (ipaddress == NULL) {
+        ipaddress = "127.0.0.1";
+    }
+    if (remotenode == NULL) {
+        remotenode = "httpdmaster@localhost";
+    }
+    if (secret == NULL) {
+        secret = "supersecret";
+    }
+    if (regproc == NULL) {
+        regproc = "mochevent_handler";
+    }
+
     pthread_t helper;
     pthread_create(&helper, NULL, (void *) cnode_run, NULL);
 
     event_init();
-    struct evhttp *httpd = evhttp_start("0.0.0.0", 8000);
+    struct evhttp *httpd = evhttp_start(ipaddress, port);
     evhttp_set_gencb(httpd, request_handler, NULL);
     event_dispatch();
     evhttp_free(httpd);
