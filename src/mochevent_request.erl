@@ -96,7 +96,6 @@ recv_body(_) ->
     Body.
 
 respond({Code, ResponseHeaders, ResponseBody}) ->
-    io:format("ResponseHeaders ~p~n", [ResponseHeaders]),
     Pid ! {ReqID, Code, ResponseHeaders, ResponseBody}.
 
 not_found() ->

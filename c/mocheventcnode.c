@@ -25,7 +25,6 @@
 // http://www.metabrew.com/article/a-million-user-comet-application-with-mochiweb-part-3/
 #include <sys/types.h>
 #include <sys/time.h>
-// #include <time.h>
 #include <sys/queue.h>
 #include <stdlib.h>
 #include <err.h>
@@ -48,14 +47,12 @@ extern short erl_thiscreation(void);
 #define BUFSIZE 1024
 #define MAXUSERS (65536) //!< Max number of connections to be handled concurrently
 
-struct evhttp_request * clients[MAXUSERS+1];
 int fd;
+struct evhttp_request * clients[MAXUSERS+1];
 int cuid;
-
-pthread_mutex_t cuid_mutex;
 pthread_mutex_t clients_mutex;
+pthread_mutex_t cuid_mutex;
 
-//! The request handler set to the libevent http callback.
 void request_handler(struct evhttp_request *req, void *arg) {
     pthread_mutex_lock(&cuid_mutex);
     if (cuid == MAXUSERS-1) { cuid = 0; }
@@ -66,7 +63,6 @@ void request_handler(struct evhttp_request *req, void *arg) {
     size_t len = EVBUFFER_LENGTH(req->input_buffer);
     char *body;
     if ((body = malloc(len + 1)) == NULL) {
-          fprintf(stderr, "%s: out of memory\n", __func__);
           evbuffer_drain(req->input_buffer, len);
     }
 
@@ -92,9 +88,9 @@ void request_handler(struct evhttp_request *req, void *arg) {
     arr[0] = SELF(fd);
     arr[1] = erl_mk_int(mycuid);
     arr[2] = erl_mk_int(req->type);
-    arr[3] = erl_mk_string((const char *) evhttp_request_uri(req));
+    arr[3] = erl_mk_binary(req->uri, sizeof(req->uri));
     arr[4] = erl_mk_list(harray, hcount);
-    arr[5] = erl_mk_string(body);
+    arr[5] = erl_mk_binary(body, len + 1);
     emsg2 = erl_mk_tuple(arr, 6);
 
     pthread_mutex_lock(&clients_mutex);
@@ -103,16 +99,18 @@ void request_handler(struct evhttp_request *req, void *arg) {
 
     erl_reg_send(fd, "mochevent_handler", emsg2);
     erl_free_compound(emsg2);
+    free(body);
 
     int timeout = 3 * CLOCKS_PER_SEC;
     long time_taken = clock();
 
+    // NKG: There might be a better way to do this.
     while (clients[mycuid]) {
         if (clock() - time_taken > timeout) {
             struct evbuffer *buf;
             buf = evbuffer_new();
             evbuffer_add_printf(buf, "Took tooo long.");
-            evhttp_send_reply(req, HTTP_SERVUNAVAIL, "FFUUUUUUUUUU", buf);
+            evhttp_send_reply(req, HTTP_SERVUNAVAIL, "", buf);
             evbuffer_free(buf);
             
             pthread_mutex_lock(&clients_mutex);
@@ -123,15 +121,10 @@ void request_handler(struct evhttp_request *req, void *arg) {
     }
 }
 
-/* A function executed in a pthread that will create a cnode connect to the
-local httpdmaster node to dispatch requests. The request loop will assume that
-all incoming messages are contain request bodies for existing requests stored
-in the clients array. When that is the case the reply to that request is
-crafted and sent.
-*/
 void cnode_run() {
     int got;
-    unsigned char buf[BUFSIZE];
+    unsigned char *buf;
+    buf = malloc(BUFSIZE + 1);
     ErlMessage emsg;
     ETERM *reqidr, *coder, *respheadersr, *respbodyr;
 
@@ -142,18 +135,17 @@ void cnode_run() {
     if ((fd = erl_connect("httpdmaster@localhost")) < 0) {
         erl_err_quit("erl_connect");
     }
+    
+    struct evbuffer *evbuf = evbuffer_new();
 
     while (1) {
         got = erl_receive_msg(fd, buf, BUFSIZE, &emsg);
         if (got == ERL_TICK) {
             continue;
         } else if (got == ERL_ERROR) {
-            fprintf(stderr, "ERL_ERROR from erl_receive_msg.\n");
             break;
         } else {
             if (emsg.type == ERL_SEND) {
-                // get uid and body data from eg: {123, <<"Hello">>}
-                // {ReqID, Code, ResponseHeaders, ResponseBody}
                 reqidr = erl_element(1, emsg.msg);
                 coder = erl_element(2, emsg.msg);
                 respheadersr = erl_element(3, emsg.msg);
@@ -164,7 +156,6 @@ void cnode_run() {
                 char *body = (char *) ERL_BIN_PTR(respbodyr);
                 int body_len = ERL_BIN_SIZE(respbodyr);
                 if (clients[reqid]) {
-                    struct evbuffer *evbuf = evbuffer_new();
 
                     if (ERL_IS_LIST(respheadersr)) {
                         ETERM *list;
@@ -174,19 +165,20 @@ void cnode_run() {
                             ETERM *valuer = erl_element(2, item);
                             int key_len = ERL_BIN_SIZE(keyr);
                             char *key;
-                            key = malloc(key_len + 1);
-                            key = (char *) ERL_BIN_PTR(keyr);
+                            key = malloc((key_len + 1) * sizeof(char));
+                            memcpy(key, (char *) ERL_BIN_PTR(keyr), key_len);
+                            // key = (char *) ERL_BIN_PTR(keyr);
                             key[key_len + 1] = '\0';
 
                             int value_len = ERL_BIN_SIZE(valuer);
                             char *value;
-                            value = malloc(value_len + 1);
-                            value = (char *) ERL_BIN_PTR(valuer);
+                            value = malloc((value_len + 1) * sizeof(char));
+                            memcpy(key, (char *) ERL_BIN_PTR(valuer), value_len);
                             value[value_len + 1] = '\0';
 
                             evhttp_add_header(clients[reqid]->output_headers, key, value);
-                            key = NULL;
-                            value = NULL;
+                            free(key);
+                            free(value);
                             erl_free_term(item);
                             erl_free_term(keyr);
                             erl_free_term(valuer);
@@ -199,15 +191,13 @@ void cnode_run() {
                     pthread_mutex_lock(&clients_mutex);
                     clients[reqid] = NULL;
                     pthread_mutex_unlock(&clients_mutex);
-                } else {
-                    fprintf(stderr, "... ignoring unknown msgid %d\n", reqid);
                 }
                 erl_free_term(emsg.msg);
+                erl_free_term(emsg.to);
                 erl_free_term(reqidr);
                 erl_free_term(coder);
                 erl_free_term(respheadersr);
                 erl_free_term(respbodyr);
-                // clients[msgid] = NULL;
             }
         }
     }
