@@ -29,7 +29,7 @@ Then start up the app.
 
 You can test it with curl.
 
-    $ curl http://localhost:8000/oooohyeaaaah
+    $ curl http://127.0.0.1:8000/oooohyeaaaah
     The rain in Spain falls gently on the plain.
 
 # Command-line Arguments
@@ -40,6 +40,11 @@ You can test it with curl.
  * --secret &lt;node cookie&gt;, defaults to "supersecret"
  * --timeout &lt;seconds&gt;, defaults to 10
  * --remote &lt;registered process name&gt;, defaults to "mochevent_handler"
+ * --daemon, runs the application in daemon mode
+
+## Daemon mode
+
+When running in daemon mode with the `--daemon` flag, it will run the application in the background and write to the /tmp/mochevent.log and /tmp/mochevent.lock files.
 
 # What's Next?
 

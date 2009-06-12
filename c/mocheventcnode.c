@@ -39,6 +39,14 @@
 #include "ei.h"
 #include <getopt.h>
 #include <signal.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <unistd.h>
+
+#define RUNNING_DIR	"/tmp"
+#define LOCK_FILE	"mochevent.lock"
+#define LOG_FILE	"mochevent.log"
 
 extern const char *erl_thisnodename(void); 
 extern short erl_thiscreation(void); 
@@ -46,8 +54,6 @@ extern short erl_thiscreation(void);
 
 #define BUFSIZE 1024
 #define MAXUSERS (65536) //!< Max number of connections to be handled concurrently
-
-static int verbose_flag;
 
 int fd;
 struct evhttp_request * clients[MAXUSERS+1];
@@ -58,6 +64,26 @@ char *secret;
 char *remotenode;
 char *regproc;
 int timeout;
+
+void log_message(filename, message) char *filename; char *message; {
+    FILE *logfile;
+    logfile = fopen(filename,"a");
+    if (! logfile) { return; }
+    fprintf(logfile, "%s\n", message);
+    fclose(logfile);
+}
+
+void signal_handler(sig) int sig; {
+    switch(sig) {
+        case SIGHUP:
+            log_message(LOG_FILE,"hangup signal catched");
+            break;
+        case SIGTERM:
+            log_message(LOG_FILE,"terminate signal catched");
+            exit(0);
+            break;
+    }
+}
 
 void request_handler(struct evhttp_request *req, void *arg) {
     pthread_mutex_lock(&cuid_mutex);
@@ -207,18 +233,65 @@ void cnode_run() {
     pthread_exit(0);
 }
 
+void daemonize() {
+    int i,lfp;
+    char str[10];
+    /* already a daemon */
+    if (getppid() == 1) {
+        return;
+    }
+    i = fork();
+    /* fork error */
+    if (i < 0) {
+        exit(1);
+    }
+    /* parent exits */
+    if (i > 0) {
+        exit(0);
+    }
+
+    setsid();
+    /* close all descriptors */
+    for (i = getdtablesize(); i >= 0; --i) {
+        close(i);
+    }
+    i = open("/dev/null", O_RDWR);
+    dup(i);
+    dup(i);
+    umask(027);
+    chdir(RUNNING_DIR);
+
+    lfp = open(LOCK_FILE,O_RDWR|O_CREAT,0640);
+    if (lfp < 0) {
+        exit(1);
+    }
+    if (lockf(lfp, F_TLOCK, 0) < 0) {
+        exit(0);
+    }
+
+    sprintf(str, "%d\n", getpid());
+    write(lfp, str, strlen(str));
+
+    signal(SIGCHLD, SIG_IGN);
+    signal(SIGTSTP, SIG_IGN);
+    signal(SIGTTOU, SIG_IGN);
+    signal(SIGTTIN, SIG_IGN);
+    signal(SIGHUP, signal_handler); /* catch hangup signal */
+    signal(SIGTERM, signal_handler); /* catch kill signal */
+}
+
 int main(int argc, char **argv) {
     cuid = 1;
-    
+
     char *ipaddress;
     int port = 8000;
     timeout = 10 * CLOCKS_PER_SEC;
+    static int daemon_mode = 0;
 
     int c;
     while (1) {
         static struct option long_options[] = {
-            {"verbose", no_argument,       &verbose_flag, 1},
-            {"brief",   no_argument,       &verbose_flag, 0},
+            {"daemon",  no_argument,       &daemon_mode, 1},
             {"ip",      required_argument, 0, 'i'},
             {"port",    required_argument, 0, 'p'},
             {"master",  required_argument, 0, 'm'},
@@ -228,7 +301,7 @@ int main(int argc, char **argv) {
             {0, 0, 0, 0}
         };
         int option_index = 0;
-        c = getopt_long(argc, argv, "i:p:", long_options, &option_index);
+        c = getopt_long(argc, argv, "i:p:m:s:t:r:", long_options, &option_index);
         if (c == -1) { break; }
         switch (c) {
             case 0:
@@ -273,6 +346,9 @@ int main(int argc, char **argv) {
     }
     if (regproc == NULL) {
         regproc = "mochevent_handler";
+    }
+    if (daemon_mode == 1) {
+        daemonize();
     }
 
     pthread_t helper;
