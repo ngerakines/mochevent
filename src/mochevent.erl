@@ -21,7 +21,7 @@
 %% FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 %% OTHER DEALINGS IN THE SOFTWARE.
 -module(mochevent).
--export([start/1, server/1, server/2, default/1]).
+-export([start/0, start/1, server/1, server/2, default/1]).
 
 %% @doc Starts the server process
 start() ->
@@ -39,7 +39,7 @@ server(Loop, Count) ->
     receive
         {Pid, Id, Method, Uri, Headers, Body} ->
             Req = mochevent_request:new(Pid, Id, Method, Uri, {1, 0}, mochiweb_headers:make(Headers), Body),
-            handle_request(Loop, Req);
+            spawn_link(fun() -> handle_request(Loop, Req) end);
         Other ->
             error_logger:error_report({?MODULE, ?LINE, unhandled_receive, Other}),
             ok
@@ -52,4 +52,4 @@ handle_request(Fun, Req) when is_function(Fun) ->
     Fun(Req).
 
 default(Req) ->
-    Req:respond({200, [{"content-type", "text/plain"}], <<"The rain in Spain falls gently on the plain.">>}).
+    Req:respond({200, [{<<"content-type">>, <<"text/plain">>}], <<"The rain in Spain falls gently on the plain.">>}).

@@ -1,7 +1,7 @@
 
-CFLAGS = -I /usr/local/lib/erlang/lib/erl_interface-3.6.1/include/ \
-	-m64 -arch i386 -Wall -fPIC \
-	-L/usr/local/lib/erlang/lib/erl_interface-3.6.1/lib/ 
+CFLAGS = -I /opt/local/lib/erlang/lib/erl_interface-3.6.1/include/ \
+	-arch i386 -Wall -fPIC \
+	-L/opt/local/lib/erlang/lib/erl_interface-3.6.1/lib/ 
 
 all: mocheventcnode
 
