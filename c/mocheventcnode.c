@@ -135,7 +135,7 @@ void cnode_run() {
     if ((fd = erl_connect("httpdmaster@localhost")) < 0) {
         erl_err_quit("erl_connect");
     }
-    
+
     struct evbuffer *evbuf = evbuffer_new();
 
     while (1) {
@@ -167,7 +167,6 @@ void cnode_run() {
                             char *key;
                             key = malloc((key_len + 1) * sizeof(char));
                             memcpy(key, (char *) ERL_BIN_PTR(keyr), key_len);
-                            // key = (char *) ERL_BIN_PTR(keyr);
                             key[key_len + 1] = '\0';
 
                             int value_len = ERL_BIN_SIZE(valuer);
@@ -185,7 +184,7 @@ void cnode_run() {
                         }
                         erl_free_term(list);
                     }
-                    
+
                     evbuffer_add(evbuf, (const void*) body, (size_t) body_len);
                     evhttp_send_reply(clients[reqid], code, "OK", evbuf);
                     pthread_mutex_lock(&clients_mutex);
@@ -197,21 +196,16 @@ void cnode_run() {
                 erl_free_term(reqidr);
                 erl_free_term(coder);
                 erl_free_term(respheadersr);
-                erl_free_term(respbodyr);
+                erl_free_term(respbodyr);0
             }
         }
     }
     pthread_exit(0);
 }
 
-/* The main loop. Spawn the cnode pthread, create an httpd server on
-0.0.0.0:8000, set the generic callback function and start dispatching
-requests.
-*/
 int main(int argc, char **argv) {
-    pthread_t helper;
-    
     cuid = 1;
+    pthread_t helper;
     pthread_create(&helper, NULL, (void *) cnode_run, NULL);
 
     event_init();
