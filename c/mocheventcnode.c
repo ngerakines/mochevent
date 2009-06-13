@@ -94,19 +94,19 @@ void request_handler(struct evhttp_request *req, void *arg) {
     u_char *data = EVBUFFER_DATA(req->input_buffer);
     size_t len = EVBUFFER_LENGTH(req->input_buffer);
     char *body;
-    if ((body = malloc(len + 1)) == NULL) {
+    if ((body = malloc(len)) == NULL) {
           evbuffer_drain(req->input_buffer, len);
     }
 
     memcpy(body, data, len);
-    body[len] = '\0';
-    evbuffer_drain(req->input_buffer, len + 1);
+    // body[len] = '\0';
+    evbuffer_drain(req->input_buffer, len);
 
     ETERM *harray[50]; // Wasted space if there are less than 50 headers
     int hcount = 0;
-    struct evkeyval *header; // XXX Not being released.
+    struct evkeyval *header;
     TAILQ_FOREACH(header, req->input_headers, next) {
-        if (hcount == 50) {
+        if (hcount != 50) {
             ETERM *harr[2];
             harr[0] = erl_mk_string((const char *) header->key);
             harr[1] = erl_mk_string((const char *) header->value);
@@ -122,7 +122,7 @@ void request_handler(struct evhttp_request *req, void *arg) {
     arr[2] = erl_mk_int(req->type);
     arr[3] = erl_mk_binary(req->uri, sizeof(req->uri));
     arr[4] = erl_mk_list(harray, hcount);
-    arr[5] = erl_mk_binary(body, len + 1);
+    arr[5] = erl_mk_binary(body, len);
     emsg2 = erl_mk_tuple(arr, 6);
 
     pthread_mutex_lock(&clients_mutex);
@@ -336,7 +336,7 @@ int main(int argc, char **argv) {
          }
     }
     if (ipaddress == NULL) {
-        ipaddress = "127.0.0.1";
+        ipaddress = "0.0.0.0";
     }
     if (remotenode == NULL) {
         remotenode = "httpdmaster@localhost";
