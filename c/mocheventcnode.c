@@ -99,20 +99,23 @@ void request_handler(struct evhttp_request *req, void *arg) {
     }
 
     memcpy(body, data, len);
-    // body[len] = '\0';
     evbuffer_drain(req->input_buffer, len);
 
-    ETERM *harray[50]; // Wasted space if there are less than 50 headers
+    ETERM **harray = NULL;
+    int nalloc = 0;
     int hcount = 0;
     struct evkeyval *header;
     TAILQ_FOREACH(header, req->input_headers, next) {
-        if (hcount != 50) {
-            ETERM *harr[2];
-            harr[0] = erl_mk_string((const char *) header->key);
-            harr[1] = erl_mk_string((const char *) header->value);
-            harray[hcount] = erl_mk_tuple(harr, 2);
-            hcount++;
+        nalloc += 1;
+        harray = (ETERM **)realloc((ETERM *)harray, nalloc * sizeof(ETERM *));
+        if(harray == NULL){
+           fprintf(stderr, "out of memory with %d elements\n", hcount);
+           exit(1);
         }
+        ETERM *harr[2];
+        harr[0] = erl_mk_string((const char *) header->key);
+        harr[1] = erl_mk_string((const char *) header->value);
+        harray[hcount++] = erl_mk_tuple(harr, 2);
     }
 
     // {pid(), int(), int(), string(), list(tuple()), string()}
@@ -132,6 +135,7 @@ void request_handler(struct evhttp_request *req, void *arg) {
     erl_reg_send(fd, regproc, emsg2);
     erl_free_compound(emsg2);
     free(body);
+    free(harray);
 
     long time_taken = clock();
     // NKG: There might be a better way to do this.

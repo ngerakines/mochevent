@@ -35,7 +35,7 @@ start() ->
     (fun() ->
         Request = etap_web:build_request(get, "http://127.0.0.1:5001/nick", gen_headers(51), "GET body"),
         Request:status_is(200, "status code ok"),
-        Request:body_is(header_body(gen_headers(47)), "body ok"),
+        Request:body_is(header_body(gen_headers(51)), "body ok"),
         ok
     end)(),
     

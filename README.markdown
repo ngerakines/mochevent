@@ -19,7 +19,7 @@ This project has not been built or tested on any environments other than the fol
 
 It's easy, first start the httpdmaster node and start the mochevent handler.
 
-    $ erl -pa ./ebin -setcookie secretcookie -sname httpdmaster@localhost
+    $ erl -pa ./ebin -setcookie supersecret -name httpdmaster@localhost
     1> mochevent:start({mochevent, default}).
     <0.x.y>
 
