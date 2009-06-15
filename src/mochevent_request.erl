@@ -96,7 +96,8 @@ recv_body(_) ->
     Body.
 
 respond({Code, ResponseHeaders, ResponseBody}) ->
-    Pid ! {ReqID, Code, ResponseHeaders, ResponseBody}.
+    CleanHeaders = [{list_to_binary(K), list_to_binary(V)} || {K,V} <- ResponseHeaders, is_list(K), is_list(V)],
+    Pid ! {ReqID, Code, CleanHeaders, ResponseBody}.
 
 not_found() ->
     not_found([]).

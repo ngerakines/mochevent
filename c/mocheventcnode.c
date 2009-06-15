@@ -25,6 +25,7 @@
 // http://www.metabrew.com/article/a-million-user-comet-application-with-mochiweb-part-3/
 #include <sys/types.h>
 #include <sys/time.h>
+#include <sys/stat.h>
 #include <sys/queue.h>
 #include <stdlib.h>
 #include <err.h>
@@ -123,7 +124,7 @@ void request_handler(struct evhttp_request *req, void *arg) {
     arr[0] = SELF(fd);
     arr[1] = erl_mk_int(mycuid);
     arr[2] = erl_mk_int(req->type);
-    arr[3] = erl_mk_binary(req->uri, sizeof(req->uri));
+    arr[3] = erl_mk_binary(req->uri, strlen(req->uri));
     arr[4] = erl_mk_list(harray, hcount);
     arr[5] = erl_mk_binary(body, len);
     emsg2 = erl_mk_tuple(arr, 6);
