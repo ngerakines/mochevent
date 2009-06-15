@@ -16,7 +16,7 @@ clean:
 	rm -rf *.boot *.rel *.script *.dump *.tgz ebin/*.app
 
 package: clean
-	@mkdir $(PKGNAME)-$(VERSION)/ && cp -rf ebin priv src c t foo.bin Makefile README.markdown $(PKGNAME)-$(VERSION)
+	@mkdir $(PKGNAME)-$(VERSION)/ && cp -rf ebin priv src c t support foo.bin Makefile README.markdown $(PKGNAME)-$(VERSION)
 	@COPYFILE_DISABLE=true tar zcf $(PKGNAME)-$(VERSION).tgz $(PKGNAME)-$(VERSION)
 	@rm -rf $(PKGNAME)-$(VERSION)/
 
