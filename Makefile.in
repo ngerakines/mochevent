@@ -18,10 +18,6 @@ distclean: clean
 	rm -rf autom4te.cache config.log config.status
 	rm -f Makefile c/Makefile
 
-install: all
-	(cd c; $(MAKE) install)
-	(cd src; $(MAKE) install)
-
 debug:
 	(cd c;$(MAKE) debug)
 	(cd src;$(MAKE) debug)
@@ -32,3 +28,12 @@ test:
 make_subprojects:
 	(cd c;$(MAKE))
 	(cd src;$(MAKE))
+
+package: clean
+	@mkdir mochevent-$(PACKAGE_VERSION)/ && cp -rf c src support t configure configure.in  foo.bin Makefile.in README.markdown mochevent-$(PACKAGE_VERSION)
+	@COPYFILE_DISABLE=true tar zcf mochevent-$(PACKAGE_VERSION).tgz mochevent-$(PACKAGE_VERSION)
+	@rm -rf mochevent-$(PACKAGE_VERSION)/
+
+install:
+	mkdir -p $(prefix)/$(LIBDIR)/mochevent-$(PACKAGE_VERSION)/ebin
+	for i in ebin/*.beam; do install $$i $(prefix)/$(LIBDIR)/mochevent-$(PACKAGE_VERSION)/$$i ; done
