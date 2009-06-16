@@ -1,19 +1,21 @@
 
 # About
 
-mochevent is a libevent based front-end to a mochiweb compliant request module that can dispatch a subset of request types.
+The mochevent project provides a libevent based Erlang cnode that can compose  [mochiweb](http://code.google.com/p/mochiweb/) compliant requests that can dispatch for distributed request processing.
+
+In a nutshell, as you have nodex running to process web requests that would be handled natively by mochiweb, you can run the mocheventcnode daemon to handle incoming http responses. The mochevent daemon will break down requests and dispatch them to the node much like mochiweb would. The mochevent\_request module is mostly compliant with the mochiweb\_request module and the two can be switched out transparently. The mochevent project was made to allow you to scale Erlang based web services cheaply and efficiently by offloading socket handling, request parsing and response composition to a c application.
 
 This is release candidate software. We've worked hard to get as many of the kinks out as possible but there may be more that we don't know about. Please use this in your dev and test environments and send bug reports. Do send as much information as possible to help us replicate any issues.
 
-# Prerequisites 
-
-Libevent needs to be installed using environment CFLAGS="-arch i386"
-
 # Building
 
-This project has not been built or tested on any environments other than the following:
+    $ autoconf
+    $ ./configure [--enable-64bit]
+    $ make
 
- * 9.7.0 Darwin Kernel Version 9.7.0: Tue Mar 31 22:52:17 PDT 2009; root:xnu-1228.12.14~1/RELEASE_I386 i386
+If you encounter the following error you may need to run configure with the --enable-64bit command line argument.
+
+    xxx.a, file is not of required architecture
 
 # Quick Start Guide
 
@@ -45,10 +47,3 @@ You can test it with curl.
 ## Daemon mode
 
 When running in daemon mode with the `--daemon` flag, it will run the application in the background and write to the /tmp/mochevent.log and /tmp/mochevent.lock files.
-
-# What's Next?
-
- * Adding init.d scripts
- * Better build process, porting to other environments
- * Code cleanup
- * Tests

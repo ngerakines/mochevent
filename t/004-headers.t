@@ -23,7 +23,7 @@ start() ->
     register(mochevent_handler, Pid),
 
     os:cmd("for i in `cat /tmp/mochevent.lock`; do kill $i; done"),
-    os:cmd("./bin/mocheventcnode --daemon --ip 0.0.0.0 --port 5001 --master httpdmaster@`hostname`"),
+    os:cmd("./priv/mocheventcnode --daemon --ip 0.0.0.0 --port 5001 --master httpdmaster@`hostname`"),
 
     (fun() ->
         Request = etap_web:build_request(get, "http://127.0.0.1:5001/nick", gen_headers(25), "GET body"),

@@ -1,0 +1,66 @@
+
+SHELL = /bin/sh
+VPATH = @srcdir@
+enable_64bit=@enable_64bit@
+top_srcdir = @top_srcdir@
+srcdir = @srcdir@
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+bindir = $(exec_prefix)/bin
+infodir = $(prefix)/info
+libdir = $(prefix)/lib/gnudl
+mandir = $(prefix)/man/man1
+CFLAGS_COMMON = $(CPPFLAGS) @CFLAGS@
+
+ifeq ($(shell uname),Linux)
+	ARCH = linux
+	CFLAGS = $(CFLAGS_COMMON)
+	LDFLAGS = -lerl_interface -lei -levent
+endif
+ifeq ($(shell uname),Darwin)
+	ARCH = macosx
+	ifeq ($(enable_64bit),yes)
+		CFLAGS = $(CFLAGS_COMMON) -arch i386 -m64
+	else
+		CFLAGS = $(CFLAGS_COMMON) -arch i386
+	endif
+	LDFLAGS = $(LDFLAGS_COMMON) -lerl_interface -lei -levent
+endif
+
+CC = @CC@
+CPPFLAGS = @CPPFLAGS@
+LIBS = @LIBS@
+PACKAGE_NAME = @PACKAGE_NAME@
+PACKAGE_VERSION = @PACKAGE_VERSION@
+
+OUTPUTFILES := $(patsubst %.c, ../priv/%, $(wildcard *.c))
+
+DEFS = -DHAVE_CONFIG_H
+
+ERLDIR = @ERLDIR@
+
+all: $(OUTPUTFILES)
+
+debug:
+	$(MAKE) DEBUG=-DDEBUG
+
+.SUFFIXES: .o .c .h
+
+../priv/%: %.o
+	mkdir -p ../priv
+	$(CC) $(CFLAGS) $(DEFS) $(DEBUG) $(LDFLAGS) -o $@ $^
+
+.c.o:
+	$(CC) $(CFLAGS) $(DEFS) $(DEBUG) -c $<
+
+clean:
+	rm -rf *.o *.a $(OUTPUTFILES)
+	rm -f *flymake*
+
+install:
+	install -d $(ERLDIR)/lib/$(PACKAGE_NAME)-$(PACKAGE_VERSION)/priv
+	cp -r `pwd`/../priv $(ERLDIR)/lib/$(PACKAGE_NAME)-$(PACKAGE_VERSION)/
+
+package:
+	install -d `pwd`/../.pkgtmp/$(PACKAGE_NAME)-$(PACKAGE_VERSION)/priv
+	cp -r `pwd`/../priv/* `pwd`/../.pkgtmp/$(PACKAGE_NAME)-$(PACKAGE_VERSION)/priv
