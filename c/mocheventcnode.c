@@ -210,7 +210,10 @@ void cnode_run() {
                             memcpy(key, (char *) ERL_BIN_PTR(valuer), value_len);
                             value[value_len + 1] = '\0';
 
+                            pthread_mutex_lock(&clients_mutex);
                             evhttp_add_header(clients[reqid]->output_headers, key, value);
+                            pthread_mutex_unlock(&clients_mutex);
+
                             free(key);
                             free(value);
                             erl_free_term(item);
